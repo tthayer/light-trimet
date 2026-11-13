@@ -42,7 +42,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private const val REFRESH_INTERVAL_MS = 30_000L
+private const val REFRESH_INTERVAL_MS = 60_000L
 private const val PREVIEW_ARRIVALS = 3
 
 data class HomeUiState(

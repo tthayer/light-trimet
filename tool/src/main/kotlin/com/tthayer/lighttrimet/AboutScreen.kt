@@ -55,7 +55,7 @@ class AboutScreen(sealedActivity: SealedLightActivity) : SimpleLightScreen<Unit>
                     AboutSection(
                         heading = "Live arrivals",
                         body = "Save a stop by its ID to see upcoming arrivals, " +
-                            "updated about every 30 seconds.",
+                            "updated about every minute.",
                     )
                     AboutSection(
                         heading = "Trip planning",

@@ -39,7 +39,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 
-private const val STOP_REFRESH_INTERVAL_MS = 30_000L
+private const val STOP_REFRESH_INTERVAL_MS = 60_000L
 
 data class StopUiState(
     val loading: Boolean = true,

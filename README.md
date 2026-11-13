@@ -4,7 +4,7 @@ A [Light Phone III](https://thelightphone.com) tool for Portland's [TriMet](http
 transit system. It has two jobs:
 
 - **Live arrivals by stop ID.** Save the stops you use (by their TriMet stop ID) and see upcoming
-  arrivals, refreshed about every 30 seconds. Each row shows the route, how many minutes away the
+  arrivals, refreshed about every minute. Each row shows the route, how many minutes away the
   vehicle is (or its scheduled time when no estimate is available), the destination sign, and any
   detour, drop-off-only, or disruption note.
 - **Trip planning.** Plan a trip between two places. Enter a numeric stop ID for a saved stop, or
@@ -112,7 +112,7 @@ Two things that cost time:
 1. On the home screen, tap **+** and enter a stop ID (find it on trimet.org or on the sign at the
    stop). The tool validates the ID and saves the stop.
 2. The home screen shows the next few arrivals at each saved stop. Tap a stop for the full board;
-   it refreshes every 30 seconds or when you tap the refresh icon. The trash button on a stop's
+   it refreshes every minute or when you tap the refresh icon. The trash button on a stop's
    board removes it (with a confirm step).
 3. Tap **PLAN TRIP** (from the home screen, from a stop, or on its own) and fill in **From** and
    **To**. Use a stop ID, or type a place name. Accept the suggested match if TriMet asks which
