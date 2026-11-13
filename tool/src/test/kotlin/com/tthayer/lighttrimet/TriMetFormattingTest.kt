@@ -74,4 +74,29 @@ class TriMetFormattingTest {
         assertEquals(4, minutesUntil(now + 4 * 60_000, now))
         assertEquals(0, minutesUntil(now - 1_000, now))
     }
+
+    @Test
+    fun mapsTrafficDirectionToStreetSide() {
+        assertEquals("northbound side", streetSide("Northbound"))
+        assertEquals("southbound side", streetSide("southbound"))
+        assertEquals("eastbound side", streetSide("Eastbound"))
+        assertEquals("westbound side", streetSide("Westbound"))
+        assertEquals(null, streetSide(""))
+        assertEquals(null, streetSide(null))
+    }
+
+    @Test
+    fun walkHeadingFormatsCompassDirection() {
+        assertEquals("head north", walkHeading("north"))
+        assertEquals(null, walkHeading(" "))
+        assertEquals(null, walkHeading(null))
+    }
+
+    @Test
+    fun placeLabelDropsCoordinates() {
+        assertEquals("Oregon Zoo", placeLabel("Oregon Zoo"))
+        assertEquals("", placeLabel("0.0, 0.0"))
+        assertEquals("", placeLabel("-122.72, 45.51"))
+        assertEquals("", placeLabel("   "))
+    }
 }

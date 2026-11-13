@@ -38,9 +38,9 @@ class TripPlanParsingTest {
               <leg mode="Light Rail" order="start" id="1.2">
                 <time-distance><duration>23</duration><distance>6.54</distance></time-distance>
                 <from><pos><lat>45.44143</lat><lon>-122.63982</lon></pos>
-                  <description>Milwaukie/Main St MAX Station</description></from>
+                  <description>Milwaukie/Main St MAX Station</description><stopId>13721</stopId></from>
                 <to><pos><lat>45.518967</lat><lon>-122.67856</lon></pos>
-                  <description>Pioneer Courthouse/SW 6th Ave MAX Stn</description></to>
+                  <description>Pioneer Courthouse/SW 6th Ave MAX Stn</description><stopId>10121</stopId></to>
                 <direction>north</direction>
                 <route><number>MAX</number><internalNumber>90</internalNumber>
                   <name>MAX Green Line to City Center</name><key>A</key></route>
@@ -77,6 +77,8 @@ class TripPlanParsingTest {
         assertTrue(rail.isTransit)
         assertEquals("MAX", rail.routeNumber)
         assertEquals("MAX Green Line to City Center", rail.routeName)
+        assertEquals("13721", rail.fromStopId)
+        assertEquals("10121", rail.toStopId)
         assertEquals(1, itinerary.transitLegs.size)
         assertEquals(1, itinerary.walkLegs.size)
     }

@@ -32,6 +32,23 @@ fun arrivalWhen(arrival: ArrivalDto, nowMillis: Long): String {
 fun formatClock(timeMillis: Long): String =
     ZonedDateTime.ofInstant(Instant.ofEpochMilli(timeMillis), zone).format(clockFormatter)
 
+/**
+ * Turns a stop's traffic direction (TriMet's `location[@dir]`) into a plain "which side of the
+ * street" phrase. Rail platforms that serve both directions report an empty value.
+ */
+fun streetSide(direction: String?): String? =
+    when (direction?.trim()?.lowercase()) {
+        "northbound" -> "northbound side"
+        "southbound" -> "southbound side"
+        "eastbound" -> "eastbound side"
+        "westbound" -> "westbound side"
+        else -> null
+    }
+
+/** Compass direction of a walking leg, e.g. "north" -> "head north". */
+fun walkHeading(direction: String?): String? =
+    direction?.trim()?.takeIf { it.isNotBlank() }?.let { "head $it" }
+
 fun formatDistance(miles: Double): String {
     if (miles <= 0.0) return ""
     return if (miles < 0.1) "${(miles * 5280).roundToInt()} ft" else "${round1(miles)} mi"
@@ -48,12 +65,29 @@ fun tripLegHeadline(leg: TripLeg): String = when {
     else -> "Walk"
 }
 
-fun tripLegDetail(leg: TripLeg): String = when {
-    leg.isTransit -> "to ${leg.toDescription}"
-    else -> listOfNotNull(
-        formatDistance(leg.distanceMiles).ifBlank { null },
-        formatDuration(leg.durationMinutes).takeIf { it != "—" },
-    ).joinToString(" · ").ifBlank { "Walk" }
+/**
+ * Where a leg takes you. Walking legs name the stop you are walking to (and its ID when TriMet
+ * provides one), so the list says where to walk rather than just how far.
+ */
+fun tripLegDetail(leg: TripLeg): String {
+    val target = placeLabel(leg.toStopId?.let { "stop $it — " }.orEmpty() + placeLabel(leg.toDescription))
+    return if (leg.isTransit) {
+        "to $target"
+    } else {
+        listOfNotNull(
+            formatDistance(leg.distanceMiles).ifBlank { null },
+            formatDuration(leg.durationMinutes).takeIf { it != "—" },
+            target.takeIf { it.isNotBlank() }?.let { "to $it" },
+        ).joinToString(" · ")
+    }
+}
+
+/** Empty for missing or coordinate-only descriptions ("0.0, 0.0"). */
+fun placeLabel(description: String): String {
+    val trimmed = description.trim()
+    if (trimmed.isEmpty()) return ""
+    if (trimmed.matches(Regex("""-?\d[\d.]*\s*,\s*-?\d[\d.]*"""))) return ""
+    return trimmed
 }
 
 private fun round1(value: Double): String {

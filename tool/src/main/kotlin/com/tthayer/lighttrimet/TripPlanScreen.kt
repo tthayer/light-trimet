@@ -48,6 +48,7 @@ sealed interface TripMode {
     data class PickSavedStop(val field: TripField) : TripMode
     data object Loading : TripMode
     data class Results(val plan: TripPlan) : TripMode
+    data class Detail(val plan: TripPlan, val index: Int) : TripMode
     data class ChoosePlace(
         val field: TripField,
         val candidates: List<PlaceCandidate>,
@@ -63,6 +64,8 @@ data class TripUiState(
     val toResolved: TripEndpoint.Coordinate? = null,
     val savedStops: List<SavedStop> = emptyList(),
     val error: String? = null,
+    // Stop id -> TriMet's traffic direction ("Northbound", ...), used to name the side of the street.
+    val stopSides: Map<Long, String> = emptyMap(),
 )
 
 class TripViewModel(
@@ -195,9 +198,42 @@ class TripViewModel(
         plan()
     }
 
+    fun openDetail(index: Int) {
+        val results = _uiState.value.mode as? TripMode.Results ?: return
+        val itinerary = results.plan.itineraries.getOrNull(index) ?: return
+        _uiState.update {
+            it.copy(mode = TripMode.Detail(results.plan, index), stopSides = emptyMap())
+        }
+        loadStopSides(itinerary)
+    }
+
+    fun backFromDetail() {
+        val detail = _uiState.value.mode as? TripMode.Detail ?: return
+        _uiState.update { it.copy(mode = TripMode.Results(detail.plan)) }
+    }
+
+    /** Resolves each stop's traffic direction so the detail view can name the side of the street. */
+    private fun loadStopSides(itinerary: Itinerary) {
+        val stopIds = itinerary.legs
+            .flatMap { listOfNotNull(it.fromStopId, it.toStopId) }
+            .mapNotNull { it.toLongOrNull() }
+            .distinct()
+        if (stopIds.isEmpty()) return
+        viewModelScope.launch {
+            TriMetApi.arrivals(stopIds).onSuccess { result ->
+                _uiState.update { state ->
+                    state.copy(stopSides = result.stops.mapValues { (_, info) -> info.direction })
+                }
+            }
+        }
+    }
+
     override fun onBackPressed(): Boolean {
-        if (_uiState.value.mode is TripMode.Form) return false
-        backToForm()
+        when (_uiState.value.mode) {
+            is TripMode.Form -> return false
+            is TripMode.Detail -> backFromDetail()
+            else -> backToForm()
+        }
         return true
     }
 
@@ -249,7 +285,16 @@ class TripPlanScreen(
 
                     is TripMode.Results -> ResultsContent(
                         plan = mode.plan,
+                        onSelect = viewModel::openDetail,
                         onEdit = viewModel::backToForm,
+                        onClose = { goBack() },
+                    )
+
+                    is TripMode.Detail -> DetailContent(
+                        plan = mode.plan,
+                        index = mode.index,
+                        stopSides = state.stopSides,
+                        onBack = viewModel::backFromDetail,
                         onClose = { goBack() },
                     )
 
@@ -505,6 +550,7 @@ private fun LoadingContent() {
 @Composable
 private fun ResultsContent(
     plan: TripPlan,
+    onSelect: (Int) -> Unit,
     onEdit: () -> Unit,
     onClose: () -> Unit,
 ) {
@@ -520,8 +566,17 @@ private fun ResultsContent(
                 .fillMaxWidth()
                 .padding(start = 1f.gridUnitsAsDp(), end = 0.5f.gridUnitsAsDp()),
         ) {
-            plan.itineraries.forEach { itinerary ->
-                ItineraryBlock(itinerary)
+            LightText(
+                text = "Tap a trip for step-by-step directions.",
+                variant = LightTextVariant.Detail,
+                lighten = true,
+                modifier = Modifier.padding(bottom = 0.75f.gridUnitsAsDp()),
+            )
+            plan.itineraries.forEachIndexed { index, itinerary ->
+                ItineraryBlock(
+                    itinerary = itinerary,
+                    onClick = { onSelect(index) },
+                )
             }
         }
 
@@ -535,10 +590,14 @@ private fun ResultsContent(
 }
 
 @Composable
-private fun ItineraryBlock(itinerary: Itinerary) {
+private fun ItineraryBlock(
+    itinerary: Itinerary,
+    onClick: () -> Unit,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .lightClickable(onClick = onClick)
             .padding(bottom = 1.5f.gridUnitsAsDp()),
     ) {
         LightText(
@@ -552,6 +611,96 @@ private fun ItineraryBlock(itinerary: Itinerary) {
         )
         itinerary.legs.forEach { leg ->
             LegRow(leg)
+        }
+    }
+}
+
+/**
+ * Step-by-step directions for one itinerary: which stop to walk to, which stop ID to board at,
+ * how long to ride, and which side of the street each stop is on.
+ */
+@Composable
+private fun DetailContent(
+    plan: TripPlan,
+    index: Int,
+    stopSides: Map<Long, String>,
+    onBack: () -> Unit,
+    onClose: () -> Unit,
+) {
+    val itinerary = plan.itineraries.getOrNull(index) ?: return
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        LightTopBar(
+            leftButton = LightBarButton.LightIcon(
+                icon = LightIcons.BACK,
+                onClick = onBack,
+                contentDescription = "Back",
+            ),
+            center = LightTopBarCenter.Text("Trip ${index + 1} of ${plan.itineraries.size}"),
+            modifier = Modifier.padding(bottom = 0.5f.gridUnitsAsDp()),
+        )
+
+        LightScrollView(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .padding(start = 1f.gridUnitsAsDp(), end = 0.5f.gridUnitsAsDp()),
+        ) {
+            LightText(
+                text = itinerarySummary(itinerary),
+                variant = LightTextVariant.Subheading,
+            )
+            LightText(
+                text = "${itinerary.startTime} – ${itinerary.endTime}",
+                variant = LightTextVariant.Detail,
+                lighten = true,
+                modifier = Modifier.padding(bottom = 1f.gridUnitsAsDp()),
+            )
+
+            itinerary.legs.forEachIndexed { i, leg ->
+                DetailStep(number = i + 1, leg = leg, stopSides = stopSides)
+            }
+        }
+
+        LightBottomBar(
+            items = listOf(
+                LightBarButton.Text(text = "BACK", onClick = onBack),
+                LightBarButton.Text(text = "CLOSE", onClick = onClose),
+            ),
+        )
+    }
+}
+
+@Composable
+private fun DetailStep(
+    number: Int,
+    leg: TripLeg,
+    stopSides: Map<Long, String>,
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 1.25f.gridUnitsAsDp()),
+    ) {
+        Row(verticalAlignment = Alignment.Top) {
+            LegModeIcon(
+                leg = leg,
+                modifier = Modifier.padding(end = 0.5f.gridUnitsAsDp(), top = 0.15f.gridUnitsAsDp()),
+            )
+            Column(modifier = Modifier.weight(1f)) {
+                LightText(
+                    text = "$number. ${tripLegHeadline(leg)}",
+                    variant = LightTextVariant.Copy,
+                )
+                directionLines(leg, stopSides).forEach { line ->
+                    LightText(
+                        text = line,
+                        variant = LightTextVariant.Detail,
+                        lighten = true,
+                        modifier = Modifier.padding(top = 0.2f.gridUnitsAsDp()),
+                    )
+                }
+            }
         }
     }
 }
@@ -592,3 +741,40 @@ private fun itinerarySummary(itinerary: Itinerary): String {
     val fare = itinerary.fare?.takeIf { it.isNotBlank() }?.let { " · \$$it" }.orEmpty()
     return "${formatDuration(itinerary.durationMinutes)} · $transfers$fare"
 }
+
+/** Instruction lines under one step: where to walk, where to board, where to get off, which side. */
+private fun directionLines(leg: TripLeg, stopSides: Map<Long, String>): List<String> {
+    if (leg.isTransit) {
+        return buildList {
+            add("Board at ${stopRef(leg.fromStopId, leg.fromDescription)}")
+            sideFor(leg.fromStopId, stopSides)?.let { add("Board from the $it of the street") }
+            add("Ride ${formatDuration(leg.durationMinutes)} to ${stopRef(leg.toStopId, leg.toDescription)}")
+            sideFor(leg.toStopId, stopSides)?.let { add("Get off on the $it") }
+        }
+    }
+
+    val target = stopRef(leg.toStopId, leg.toDescription)
+    val meta = listOfNotNull(
+        walkHeading(leg.direction),
+        formatDistance(leg.distanceMiles).ifBlank { null },
+        formatDuration(leg.durationMinutes).takeIf { it != "—" },
+    ).joinToString(" · ")
+    return buildList {
+        add(listOf(meta, "to $target").filter { it.isNotBlank() }.joinToString(" · "))
+        sideFor(leg.toStopId, stopSides)?.let { add("The stop is on the $it of the street") }
+    }
+}
+
+/** "stop 13721 (Milwaukie/Main St MAX Station)" or just the name when TriMet gives no id. */
+private fun stopRef(stopId: String?, description: String): String {
+    val name = placeLabel(description)
+    return when {
+        stopId != null && name.isNotEmpty() -> "stop $stopId ($name)"
+        stopId != null -> "stop $stopId"
+        name.isNotEmpty() -> name
+        else -> "the marked point"
+    }
+}
+
+private fun sideFor(stopId: String?, stopSides: Map<Long, String>): String? =
+    stopId?.toLongOrNull()?.let { streetSide(stopSides[it]) }
