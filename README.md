@@ -76,7 +76,8 @@ adb install -r tool/build/outputs/apk/debug/tool-debug.apk
 1. On the home screen, tap **+** and enter a stop ID (find it on trimet.org or on the sign at the
    stop). The tool validates the ID and saves the stop.
 2. The home screen shows the next few arrivals at each saved stop. Tap a stop for the full board;
-   it refreshes every 30 seconds or when you tap the refresh icon.
+   it refreshes every 30 seconds or when you tap the refresh icon. The trash button on a stop's
+   board removes it (with a confirm step).
 3. Tap **PLAN TRIP** (from the home screen, from a stop, or on its own) and fill in **From** and
    **To**. Use a stop ID, or type a place name. Accept the suggested match if TriMet asks which
    place you meant.

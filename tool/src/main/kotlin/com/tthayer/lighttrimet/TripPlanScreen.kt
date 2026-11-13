@@ -297,6 +297,7 @@ private fun EditFieldContent(
                 contentDescription = "Saved stops",
             ),
             showBackButton = true,
+            singleLine = true,
             modifier = Modifier.fillMaxSize(),
         )
     }

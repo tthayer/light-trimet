@@ -37,6 +37,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -92,19 +93,22 @@ class HomeViewModel(
     }
 
     private suspend fun refresh(showLoading: Boolean) {
-        val stops = _uiState.value.stops
+        // Read the persisted list directly so the first fetch can't race the DataStore emission
+        // that populates the UI state.
+        val stops = repository.stops.first()
         if (stops.isEmpty()) {
             _uiState.update {
-                it.copy(loading = false, stopInfo = emptyMap(), arrivals = emptyMap(), error = null)
+                it.copy(stops = stops, loading = false, stopInfo = emptyMap(), arrivals = emptyMap(), error = null)
             }
             return
         }
-        if (showLoading) _uiState.update { it.copy(loading = true) }
+        if (showLoading) _uiState.update { it.copy(stops = stops, loading = true) }
         TriMetApi.arrivals(stops.map { it.id })
             .onSuccess { result ->
                 _uiState.update {
                     it.copy(
                         loading = false,
+                        stops = stops,
                         stopInfo = result.stops,
                         arrivals = result.arrivals,
                         error = result.error,

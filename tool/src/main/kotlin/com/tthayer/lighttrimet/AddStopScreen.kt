@@ -102,6 +102,7 @@ class AddStopScreen(sealedActivity: SealedLightActivity) :
                     submitLabel = "ADD",
                     submitIcon = LightIcons.ADD,
                     showBackButton = true,
+                    singleLine = true,
                     modifier = Modifier.fillMaxSize(),
                 )
 

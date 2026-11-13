@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
@@ -45,16 +46,30 @@ data class StopUiState(
     val info: StopInfo? = null,
     val arrivals: List<ArrivalDto> = emptyList(),
     val error: String? = null,
+    val confirmingRemove: Boolean = false,
+    val removed: Boolean = false,
 )
 
 class StopViewModel(
     private val stop: SavedStop,
+    private val repository: SavedStopsRepository,
 ) : LightViewModel<Unit>() {
 
     private val _uiState = MutableStateFlow(StopUiState())
     val uiState: StateFlow<StopUiState> = _uiState.asStateFlow()
 
     private var refreshJob: Job? = null
+
+    fun requestRemove() = _uiState.update { it.copy(confirmingRemove = true) }
+
+    fun cancelRemove() = _uiState.update { it.copy(confirmingRemove = false) }
+
+    fun confirmRemove() {
+        viewModelScope.launch {
+            repository.remove(stop.id)
+            _uiState.update { it.copy(confirmingRemove = false, removed = true) }
+        }
+    }
 
     override fun onScreenShow(screen: SimpleLightScreen<Unit>) {
         super.onScreenShow(screen)
@@ -109,13 +124,18 @@ class StopScreen(
     override val viewModelClass: Class<StopViewModel>
         get() = StopViewModel::class.java
 
-    override fun createViewModel(): StopViewModel = StopViewModel(stop)
+    override fun createViewModel(): StopViewModel =
+        StopViewModel(stop, SavedStopsRepository(lightContext.dataStore))
 
     @Composable
     override fun Content() {
         val themeColors by LightThemeController.colors.collectAsState()
         val state by viewModel.uiState.collectAsState()
         val now = System.currentTimeMillis()
+
+        LaunchedEffect(state.removed) {
+            if (state.removed) goBack()
+        }
 
         LightTheme(colors = themeColors) {
             Box(
@@ -150,6 +170,10 @@ class StopScreen(
                         contentAlignment = Alignment.Center,
                     ) {
                         when {
+                            state.confirmingRemove -> EmptyMessage(
+                                "Remove \"${stop.name}\" from your stops?",
+                            )
+
                             state.arrivals.isEmpty() && state.loading -> EmptyMessage("Loading…")
 
                             state.arrivals.isEmpty() -> EmptyMessage(
@@ -160,7 +184,7 @@ class StopScreen(
                         }
                     }
 
-                    if (state.arrivals.isNotEmpty()) {
+                    if (state.arrivals.isNotEmpty() && !state.confirmingRemove) {
                         state.error?.let { message ->
                             LightText(
                                 text = message,
@@ -174,26 +198,35 @@ class StopScreen(
                         }
                     }
 
-                    LightBottomBar(
-                        items = listOf(
-                            LightBarButton.LightIcon(
-                                icon = LightIcons.REFRESH,
-                                onClick = viewModel::refreshNow,
-                                contentDescription = "Refresh",
+                    if (state.confirmingRemove) {
+                        LightBottomBar(
+                            items = listOf(
+                                LightBarButton.Text(text = "CANCEL", onClick = viewModel::cancelRemove),
+                                LightBarButton.Text(text = "REMOVE", onClick = viewModel::confirmRemove),
                             ),
-                            LightBarButton.Text(
-                                text = "PLAN TRIP",
-                                onClick = {
-                                    navigateTo({ sealed -> TripPlanScreen(sealed, destination = stop) })
-                                },
+                        )
+                    } else {
+                        LightBottomBar(
+                            items = listOf(
+                                LightBarButton.LightIcon(
+                                    icon = LightIcons.REFRESH,
+                                    onClick = viewModel::refreshNow,
+                                    contentDescription = "Refresh",
+                                ),
+                                LightBarButton.Text(
+                                    text = "PLAN TRIP",
+                                    onClick = {
+                                        navigateTo({ sealed -> TripPlanScreen(sealed, destination = stop) })
+                                    },
+                                ),
+                                LightBarButton.LightIcon(
+                                    icon = LightIcons.TRASH,
+                                    onClick = viewModel::requestRemove,
+                                    contentDescription = "Remove stop",
+                                ),
                             ),
-                            LightBarButton.LightIcon(
-                                icon = LightIcons.CLOSE,
-                                onClick = { goBack() },
-                                contentDescription = "Close",
-                            ),
-                        ),
-                    )
+                        )
+                    }
                 }
             }
         }
