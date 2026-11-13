@@ -112,7 +112,7 @@ The tool is built and signed by Light from a public git commit. To submit:
    device read:
    - `id = "com.tthayer.lighttrimet"` — globally unique and permanent once published
    - `label = "TriMet"`
-   - `versionCode = 1`, `versionName = "0.1.0"`
+   - `versionCode = 2`, `versionName = "0.1.1"`
    - `permissions = ["android.permission.INTERNET"]`
 2. Bump `versionCode` (and `versionName`) for every submission; Light rejects a build whose
    `versionCode` does not exceed the last published one.
