@@ -127,6 +127,7 @@ The tool is built and signed by Light from a public git commit. To submit:
 Versions are tagged `v<versionName>` and carry a GitHub Release. The tag you hand the dashboard is
 the commit that gets built and signed.
 
+- [`v0.1.1`](https://github.com/tthayer/light-trimet/releases/tag/v0.1.1) — portrait-locked.
 - [`v0.1.0`](https://github.com/tthayer/light-trimet/releases/tag/v0.1.0) — first release.
 
 See [`TOOL_GUIDELINES.md`](TOOL_GUIDELINES.md) for the criteria Light reviews against and the
