@@ -15,6 +15,12 @@ transit system. It has two jobs:
 
 This is an independent project. It is not affiliated with or endorsed by TriMet.
 
+## Screenshots
+
+| Live arrivals | Trip results | Step-by-step directions |
+| --- | --- | --- |
+| ![Saved stop with live arrivals](docs/screenshots/home.png) | ![Proposed trips](docs/screenshots/trip-results.png) | ![Trip directions](docs/screenshots/trip-detail.png) |
+
 All data comes from TriMet's public web services ([developer.trimet.org](https://developer.trimet.org/ws_docs/)):
 arrivals V2 and the Trip Planner. The registered AppID lives in
 [`TriMetApi.kt`](tool/src/main/kotlin/com/tthayer/lighttrimet/TriMetApi.kt); it is a public
