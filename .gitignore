@@ -54,3 +54,4 @@ __pycache__/
 
 ### Signing keys ###
 /signer/keys/
+/sdk/emulator/keys/

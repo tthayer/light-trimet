@@ -62,14 +62,50 @@ The debug APK lands at `tool/build/outputs/apk/debug/tool-debug.apk`.
 ### Run it
 
 Start an Android emulator sized like a Light Phone III (1080 x 1240, Android API 34, no Google Play
-Services) and install the APK. Receiving push notifications and requesting special permissions needs
-LightOS itself, so for those, follow the SDK's
-[emulator instructions](docs/system_app/README.md) and run the LightOS emulator app as a system app.
-For this tool (arrivals + trip planning over the network) a plain emulator is enough.
+Services) and install the APK:
 
 ```sh
 adb install -r tool/build/outputs/apk/debug/tool-debug.apk
 ```
+
+For this tool (arrivals + trip planning over the network) a plain emulator is enough. Receiving
+push notifications and requesting special permissions needs LightOS itself, so for those, run the
+LightOS emulator app as a system app. The full instructions are in the SDK's
+[emulator docs](docs/system_app/README.md); the recipe that works locally:
+
+```sh
+# 1. AVD: create it with a writable system partition (see the note below on sizing)
+avdmanager create avd -n lp3 -k "system-images;android-34;default;arm64-v8a"
+
+# 2. Boot with a writable system, then unlock it
+emulator -avd lp3 -writable-system -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+adb root && adb remount
+
+# 3. Generate the platform test key (one time; see docs/system_app/README.md for the openssl steps)
+#    -> sdk/emulator/keys/platform.jks
+
+# 4. Build and install the emulator app as a privileged system app
+./gradlew :sdk:emulator:assembleDebug
+adb shell mkdir -p /system/priv-app/LightOSEmulator
+adb push sdk/emulator/build/outputs/apk/debug/emulator-debug.apk \
+    /system/priv-app/LightOSEmulator/LightOSEmulator.apk
+adb reboot
+adb shell dumpsys package com.thelightphone.sdk.emulator | grep sharedUser   # -> android.uid.system/1000
+
+# 5. Point the tool at the emulator server and install it
+#    set serverPackage = "com.thelightphone.sdk.emulator" in tool/lighttool.toml
+./gradlew :tool:assembleDebug -DlightSdk.allowAltServerPackage=true
+adb install -r tool/build/outputs/apk/debug/tool-debug.apk
+```
+
+Two things that cost time:
+
+- **`/system` on the AOSP image is an overlay on a ~199 MB `scratch` partition**, independent of
+  `disk.systemPartition.size`. The emulator APK is ~92 MB and does fit, but it is close — push it
+  right after `adb remount` and before anything else writes to `/system`.
+- The LightOS server rejects tokens from tools it hasn't approved (`Rejected GetToken from
+  unverified caller`). Open the emulator's **Settings → Allowed Tools → All Tools** (or upload your
+  signing key's SHA-256 to the Tool Manager's Developer Keys) so a dev-signed build is accepted.
 
 ## Using it
 
